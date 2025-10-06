@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  meses   Mes[]
+  configs Configuracao[]
+
+  @@map("users")
+}
+
+model Mes {
+  id        String   @id @default(uuid())
+  ano       Int
+  mes       Int // 1-12
+  ativo     Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], onDelete: Cascade, references: [id])
+  userId String
+
+  quinzenas Quinzena[]
+
+  @@unique([ano, mes, userId])
+  @@map("meses")
+}
+
+model Quinzena {
+  id            String   @id @default(uuid())
+  tipo          String // "primeira" | "segunda"
+  saldoAnterior Float    @default(0)
+  createdAt     DateTime @default(now())
+
+  mes   Mes    @relation(fields: [mesId], onDelete: Cascade, references: [id])
+  mesId String
+
+  receitas Receita[]
+  parcelas Parcela[]
+  Despesa  Despesa[]
+
+  @@unique([mesId, tipo])
+  @@map("quinzenas")
+}
+
+model Receita {
+  id        String   @id @default(uuid())
+  descricao String
+  valor     Float
+  tipo      String // "fixa" | "variavel"
+  createdAt DateTime @default(now())
+
+  quinzena   Quinzena @relation(fields: [quinzenaId], onDelete: Cascade, references: [id])
+  quinzenaId String
+
+  @@map("receitas")
+}
+
+model Despesa {
+  id                  String    @id @default(cuid())
+  descricao           String
+  valorTotal          Float
+  parcelas            Int
+  categoria           String
+  observacao          String?
+  ehParcelada         Boolean   @default(false)
+  dataPrimeiraParcela DateTime?
+  quinzenaId          String
+  quinzena            Quinzena  @relation(fields: [quinzenaId], references: [id], onDelete: Cascade)
+  parcelasRelacao     Parcela[]
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@map("despesas")
+}
+
+model Parcela {
+  id             String    @id @default(uuid())
+  numeroParcela  Int // 1/3, 2/3, 3/3
+  valorParcela   Float
+  dataVencimento DateTime
+  pago           Boolean   @default(false)
+  valorPago      Float?
+  dataPagamento  DateTime?
+
+  despesa   Despesa @relation(fields: [despesaId], onDelete: Cascade, references: [id])
+  despesaId String
+
+  quinzena   Quinzena @relation(fields: [quinzenaId], onDelete: Cascade, references: [id])
+  quinzenaId String
+
+  @@unique([despesaId, numeroParcela])
+  @@map("parcelas")
+}
+
+model Configuracao {
+  id        String  @id @default(uuid())
+  chave     String
+  valor     String
+  descricao String?
+
+  user   User   @relation(fields: [userId], onDelete: Cascade, references: [id])
+  userId String
+
+  @@unique([userId, chave])
+  @@map("configuracoes")
+}
