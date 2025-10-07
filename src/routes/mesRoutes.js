@@ -1,3 +1,4 @@
+// routes/mesRoutes.js
 import express from 'express';
 import {
   getMeses,
@@ -7,14 +8,16 @@ import {
   updateMes,
   deleteMes
 } from '../controllers/mesController.js';
+import { authenticateToken } from '../controllers/userController.js'; // IMPORTE O MIDDLEWARE
 
 const router = express.Router();
 
-router.get('/', getMeses);
-router.get('/atual', getMesAtual);
-router.get('/:id', getMesById);
-router.post('/', createMes);
-router.put('/:id', updateMes);
-router.delete('/:id', deleteMes);
+// Todas as rotas protegidas por autenticação
+router.get('/', authenticateToken, getMeses);
+router.get('/atual', authenticateToken, getMesAtual);
+router.get('/:id', authenticateToken, getMesById);
+router.post('/', authenticateToken, createMes);
+router.put('/:id', authenticateToken, updateMes);
+router.delete('/:id', authenticateToken, deleteMes);
 
 export default router;

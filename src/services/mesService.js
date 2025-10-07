@@ -1,13 +1,12 @@
+// services/mesService.js
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 export class MesService {
-  async getMeses() {
-    const user = await this.getUserTest();
-    
+  async getMeses(userId) {
     return await prisma.mes.findMany({
-      where: { userId: user.id },
+      where: { userId },
       include: {
         quinzenas: {
           include: {
@@ -27,9 +26,12 @@ export class MesService {
     });
   }
 
-  async getMesById(id) {
-    const mes = await prisma.mes.findUnique({
-      where: { id },
+  async getMesById(id, userId) {
+    const mes = await prisma.mes.findFirst({
+      where: { 
+        id,
+        userId 
+      },
       include: {
         quinzenas: {
           include: {
@@ -51,31 +53,29 @@ export class MesService {
     return mes;
   }
 
-  async createMes(ano, mes) {
-    const user = await this.getUserTest();
-
-    // Verificar se mês já existe de forma mais flexível
+  async createMes(ano, mes, userId) {
+    // Verificar se mês já existe
     const mesExistente = await prisma.mes.findFirst({
       where: {
         ano,
         mes,
-        userId: user.id
+        userId
       }
     });
 
     if (mesExistente) {
       // Retornar o mês existente em vez de dar erro
-      return await this.getMesById(mesExistente.id);
+      return await this.getMesById(mesExistente.id, userId);
     }
 
     // Criar o próximo mês disponível
-    const { proximoAno, proximoMes } = await this.encontrarProximoMesDisponivel(ano, mes);
+    const { proximoAno, proximoMes } = await this.encontrarProximoMesDisponivel(ano, mes, userId);
     
     const novoMes = await prisma.mes.create({
       data: {
         ano: proximoAno,
         mes: proximoMes,
-        userId: user.id,
+        userId: userId,
         ativo: true,
         quinzenas: {
           create: [
@@ -92,12 +92,10 @@ export class MesService {
     return novoMes;
   }
 
-  async encontrarProximoMesDisponivel(anoSolicitado, mesSolicitado) {
-    const user = await this.getUserTest();
-    
+  async encontrarProximoMesDisponivel(anoSolicitado, mesSolicitado, userId) {
     // Buscar todos os meses existentes do usuário
     const mesesExistentes = await prisma.mes.findMany({
-      where: { userId: user.id },
+      where: { userId },
       select: { ano: true, mes: true }
     });
 
@@ -136,7 +134,19 @@ export class MesService {
     };
   }
 
-  async updateMes(id, data) {
+  async updateMes(id, data, userId) {
+    // Verificar se o mês pertence ao usuário
+    const mesExistente = await prisma.mes.findFirst({
+      where: {
+        id,
+        userId
+      }
+    });
+
+    if (!mesExistente) {
+      throw new Error('Mês não encontrado');
+    }
+
     return await prisma.mes.update({
       where: { id },
       data,
@@ -146,39 +156,38 @@ export class MesService {
     });
   }
 
-  async deleteMes(id) {
+  async deleteMes(id, userId) {
+    // Verificar se o mês pertence ao usuário
+    const mesExistente = await prisma.mes.findFirst({
+      where: {
+        id,
+        userId
+      }
+    });
+
+    if (!mesExistente) {
+      throw new Error('Mês não encontrado');
+    }
+
     return await prisma.mes.delete({
       where: { id }
     });
   }
 
-  async getUserTest() {
-    const user = await prisma.user.findUnique({
-      where: { email: 'teste@finance.com' }
-    });
-
-    if (!user) {
-      throw new Error('Usuário não encontrado. Execute /api/users/setup primeiro.');
-    }
-
-    return user;
-  }
-
   // Novo método para obter ou criar o mês atual
-  async getOuCriarMesAtual() {
+  async getOuCriarMesAtual(userId) {
     const anoAtual = new Date().getFullYear();
     const mesAtual = new Date().getMonth() + 1;
     
     try {
-      return await this.createMes(anoAtual, mesAtual);
+      return await this.createMes(anoAtual, mesAtual, userId);
     } catch (error) {
       // Se já existe, retornar o existente
-      const user = await this.getUserTest();
       const mesExistente = await prisma.mes.findFirst({
         where: {
           ano: anoAtual,
           mes: mesAtual,
-          userId: user.id
+          userId
         },
         include: {
           quinzenas: true

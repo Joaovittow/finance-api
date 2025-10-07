@@ -1,124 +1,89 @@
+// userService.js
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
+const JWT_SECRET = process.env.JWT_SECRET || 'seu_jwt_secret_aqui';
 
 export class UserService {
-  async setupUser() {
-    // Criar usuário de teste
-    const user = await prisma.user.upsert({
-      where: { email: 'teste@finance.com' },
-      update: {},
-      create: {
-        email: 'teste@finance.com',
-        name: 'Usuário Teste',
-        password: '123456' // Em produção, usar bcrypt
-      }
+  async registerUser(email, name, password) {
+    // Verificar se usuário já existe
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
     });
 
-    // Criar entradas fixas de configuração
-    const configs = await prisma.configuracao.createMany({
-      data: [
-        {
-          chave: 'adiantamento_joao',
-          valor: '527',
-          descricao: 'Adiantamento fixo do João (Dia 15)',
-          userId: user.id
-        },
-        {
-          chave: 'salario_joao',
-          valor: '1200', 
-          descricao: 'Salário fixo do João (Dia 30)',
-          userId: user.id
-        },
-        {
-          chave: 'salario_raquel',
-          valor: '594',
-          descricao: 'Salário fixo da Raquel (Dia 30)',
-          userId: user.id
-        },
-        {
-          chave: 'categorias_padrao',
-          valor: 'casa,alimentacao,transporte,saude,educacao,lazer,outros',
-          descricao: 'Categorias padrão para despesas',
-          userId: user.id
-        }
-      ]
-    });
+    if (existingUser) {
+      throw new Error('Usuário já cadastrado');
+    }
 
-    // Criar um mês de exemplo
-    const mesExemplo = await prisma.mes.create({
+    // Hash da senha
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Criar usuário
+    const user = await prisma.user.create({
       data: {
-        ano: new Date().getFullYear(),
-        mes: new Date().getMonth() + 1,
-        userId: user.id,
-        ativo: true,
-        quinzenas: {
-          create: [
-            { 
-              tipo: 'primeira',
-              saldoAnterior: 0,
-              receitas: {
-                create: [
-                  {
-                    descricao: 'Adiantamento João',
-                    valor: 527,
-                    tipo: 'fixa'
-                  },
-                  {
-                    descricao: 'Ifood Extra',
-                    valor: 163.90,
-                    tipo: 'variavel'
-                  }
-                ]
-              }
-            },
-            { 
-              tipo: 'segunda',
-              saldoAnterior: 0,
-              receitas: {
-                create: [
-                  {
-                    descricao: 'Salário João',
-                    valor: 1200,
-                    tipo: 'fixa'
-                  },
-                  {
-                    descricao: 'Salário Raquel', 
-                    valor: 594,
-                    tipo: 'fixa'
-                  }
-                ]
-              }
-            }
-          ]
-        }
-      },
-      include: {
-        quinzenas: {
-          include: {
-            receitas: true
-          }
-        }
+        email,
+        name,
+        password: hashedPassword
       }
     });
+
+    // Gerar token JWT
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
 
     return {
-      user: { id: user.id, email: user.email, name: user.name },
-      configs: {
-        count: configs.count,
-        messages: 'Configurações padrão criadas'
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name
       },
-      mesExemplo: {
-        id: mesExemplo.id,
-        periodo: `${mesExemplo.mes}/${mesExemplo.ano}`
-      },
-      message: 'Setup completo! Usuário, configurações e mês exemplo criados.'
+      token,
+      message: 'Usuário cadastrado com sucesso'
     };
   }
 
-  async getUserTest() {
+  async loginUser(email, password) {
+    // Buscar usuário
     const user = await prisma.user.findUnique({
-      where: { email: 'teste@finance.com' },
+      where: { email }
+    });
+
+    if (!user) {
+      throw new Error('Credenciais inválidas');
+    }
+
+    // Verificar senha
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      throw new Error('Credenciais inválidas');
+    }
+
+    // Gerar token JWT
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name
+      },
+      token,
+      message: 'Login realizado com sucesso'
+    };
+  }
+
+  async getCurrentUser(userId) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
       select: {
         id: true,
         email: true,
@@ -128,17 +93,73 @@ export class UserService {
     });
 
     if (!user) {
-      throw new Error('Usuário de teste não encontrado. Execute /api/users/setup primeiro.');
+      throw new Error('Usuário não encontrado');
     }
 
     return user;
   }
 
-  async getConfiguracoes() {
-    const user = await this.getUserTest();
-    
+  async setupUser(userId) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      throw new Error('Usuário não encontrado');
+    }
+
+    // Criar um mês de exemplo se não existir
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
+
+    const existingMonth = await prisma.mes.findFirst({
+      where: {
+        userId: user.id,
+        ano: currentYear,
+        mes: currentMonth
+      }
+    });
+
+    let mesExemplo = existingMonth;
+
+    if (!existingMonth) {
+      mesExemplo = await prisma.mes.create({
+        data: {
+          ano: currentYear,
+          mes: currentMonth,
+          userId: user.id,
+          ativo: true,
+          quinzenas: {
+            create: [
+              { 
+                tipo: 'primeira',
+                saldoAnterior: 0
+              },
+              { 
+                tipo: 'segunda',
+                saldoAnterior: 0
+              }
+            ]
+          }
+        },
+        include: {
+          quinzenas: true
+        }
+      });
+    }
+
+    return {
+      message: 'Setup completo! Mês exemplo criado/verificado.',
+      mesExemplo: mesExemplo ? {
+        id: mesExemplo.id,
+        periodo: `${mesExemplo.mes}/${mesExemplo.ano}`
+      } : null
+    };
+  }
+
+  async getConfiguracoes(userId) {
     return await prisma.configuracao.findMany({
-      where: { userId: user.id },
+      where: { userId },
       select: {
         chave: true,
         valor: true,
@@ -147,12 +168,10 @@ export class UserService {
     });
   }
 
-  async updateConfiguracao(chave, valor) {
-    const user = await this.getUserTest();
-
+  async updateConfiguracao(userId, chave, valor) {
     const configExistente = await prisma.configuracao.findFirst({
       where: {
-        userId: user.id,
+        userId,
         chave
       }
     });
@@ -172,9 +191,55 @@ export class UserService {
     });
   }
 
-  async getCategoriasPadrao() {
+  async createConfiguracao(userId, chave, valor, descricao) {
+    // Verificar se configuração já existe
+    const configExistente = await prisma.configuracao.findFirst({
+      where: {
+        userId,
+        chave
+      }
+    });
+
+    if (configExistente) {
+      throw new Error('Configuração já existe');
+    }
+
+    return await prisma.configuracao.create({
+      data: {
+        chave,
+        valor,
+        descricao,
+        userId
+      },
+      select: {
+        chave: true,
+        valor: true,
+        descricao: true
+      }
+    });
+  }
+
+  async deleteConfiguracao(userId, chave) {
+    const configExistente = await prisma.configuracao.findFirst({
+      where: {
+        userId,
+        chave
+      }
+    });
+
+    if (!configExistente) {
+      throw new Error('Configuração não encontrada');
+    }
+
+    await prisma.configuracao.delete({
+      where: { id: configExistente.id }
+    });
+  }
+
+  async getCategoriasPadrao(userId) {
     const config = await prisma.configuracao.findFirst({
       where: {
+        userId,
         chave: 'categorias_padrao'
       }
     });
