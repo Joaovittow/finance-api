@@ -1,13 +1,11 @@
-// userController.js
 import { UserService } from '../services/userService.js';
 import jwt from 'jsonwebtoken';
 
 const userService = new UserService();
 
-// Middleware para extrair usuário do token
 export const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+  const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
     return res.status(401).json({ error: 'Token de acesso requerido' });

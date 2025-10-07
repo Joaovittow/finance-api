@@ -1,4 +1,3 @@
-// userRoutes.js
 import express from 'express';
 import {
   register,
@@ -14,11 +13,8 @@ import {
 
 const router = express.Router();
 
-// Rotas públicas
 router.post('/register', register);
 router.post('/login', login);
-
-// Rotas protegidas (requerem autenticação)
 router.get('/profile', authenticateToken, getProfile);
 router.post('/setup', authenticateToken, setupUser);
 router.get('/configuracoes', authenticateToken, getConfiguracoes);

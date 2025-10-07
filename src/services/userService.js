@@ -1,4 +1,3 @@
-// userService.js
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
@@ -8,7 +7,6 @@ const JWT_SECRET = process.env.JWT_SECRET || 'seu_jwt_secret_aqui';
 
 export class UserService {
   async registerUser(email, name, password) {
-    // Verificar se usuário já existe
     const existingUser = await prisma.user.findUnique({
       where: { email }
     });
@@ -17,10 +15,8 @@ export class UserService {
       throw new Error('Usuário já cadastrado');
     }
 
-    // Hash da senha
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Criar usuário
     const user = await prisma.user.create({
       data: {
         email,
@@ -29,7 +25,6 @@ export class UserService {
       }
     });
 
-    // Gerar token JWT
     const token = jwt.sign(
       { userId: user.id, email: user.email },
       JWT_SECRET,
@@ -48,7 +43,6 @@ export class UserService {
   }
 
   async loginUser(email, password) {
-    // Buscar usuário
     const user = await prisma.user.findUnique({
       where: { email }
     });
@@ -57,13 +51,11 @@ export class UserService {
       throw new Error('Credenciais inválidas');
     }
 
-    // Verificar senha
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
       throw new Error('Credenciais inválidas');
     }
 
-    // Gerar token JWT
     const token = jwt.sign(
       { userId: user.id, email: user.email },
       JWT_SECRET,
@@ -108,7 +100,6 @@ export class UserService {
       throw new Error('Usuário não encontrado');
     }
 
-    // Criar um mês de exemplo se não existir
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth() + 1;
 
@@ -192,7 +183,6 @@ export class UserService {
   }
 
   async createConfiguracao(userId, chave, valor, descricao) {
-    // Verificar se configuração já existe
     const configExistente = await prisma.configuracao.findFirst({
       where: {
         userId,
