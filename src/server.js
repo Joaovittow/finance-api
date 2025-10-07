@@ -14,8 +14,17 @@ dotenv.config();
 
 const app = express();
 
+app.use(cors({
+  origin: [
+    'https://finance-interface-three.vercel.app',
+    'http://localhost:3000'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+}));
+
 // Middleware
-app.use(cors());
 app.use(express.json());
 
 // Health check
