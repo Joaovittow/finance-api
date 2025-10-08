@@ -1,4 +1,4 @@
-# Finance Backend API
+# Finance API
 
 Uma API RESTful para gerenciamento financeiro pessoal, desenvolvida em Node.js com Express e Prisma ORM.
 
