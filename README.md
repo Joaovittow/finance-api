@@ -17,13 +17,13 @@ Sistema de controle financeiro que organiza despesas e receitas por meses e quin
 - **CORS** - Controle de acesso entre origens
 
 ## 📦 Estrutura do Projeto
-finance-api/
-├── src/
-│ ├── controllers/ # Controladores das rotas
-│ ├── services/ # Lógica de negócio
-│ ├── routes/ # Definição de rotas
-│ └── server.js # Arquivo principal
-├── prisma/ # Schema e migrations do banco
+finance-api/ <br>
+├── src/ <br>
+│ ├── controllers/ # Controladores das rotas <br>
+│ ├── services/ # Lógica de negócio <br>
+│ ├── routes/ # Definição de rotas<br>
+│ └── server.js # Arquivo principal <br>
+├── prisma/ # Schema e migrations do banco <br>
 └── package.json
 
 ## 🚀 Instalação e Configuração
@@ -34,50 +34,42 @@ finance-api/
 - npm ou yarn
 
 ### Passos para instalação
-
-1. **Clone o repositório**
-   ```bash
-   git clone [url-do-repositorio]
-   cd finance-api
-Instale as dependências
-
-bash
-npm install
+1. **Clone o repositório** <br>
+   git clone [url-do-repositorio] <br>
+   cd finance-api <br>
+   
+### Instale as dependências
+npm install <br>
 Configure as variáveis de ambiente
-Crie um arquivo .env na raiz do projeto:
 
-env
-DATABASE_URL="..."
-JWT_SECRET="seu_jwt_secret_aqui"
+### Crie um arquivo .env na raiz do projeto:
+DATABASE_URL="..." <br>
+JWT_SECRET="seu_jwt_secret_aqui" <br>
 PORT=3001
-Configure o banco de dados
 
-bash
-npx prisma generate
+### Configure o banco de dados
+npx prisma generate <br>
 npx prisma db push
-Inicie o servidor
 
-bash
-# Desenvolvimento
+# Inicie o servidor (Desenvolvimento)
 npm run dev
 
-
-🎯 Funcionalidades Principais
-✅ Sistema de Autenticação
+## 🎯 Funcionalidades Principais
+### ✅ Sistema de Autenticação
 Registro e login de usuários
 
 Proteção de rotas com JWT
 
 Senhas criptografadas com bcrypt
 
-✅ Organização por Períodos
+### ✅ Organização por Períodos
 Controle financeiro por meses
 
 Divisão em quinzenas (primeira e segunda)
 
 Cálculo automático de saldos
 
-✅ Gestão de Despesas
+### ✅ Gestão de Despesas
 Despesas à vista e parceladas
 
 Cálculo automático de parcelas
@@ -86,14 +78,14 @@ Categorização de despesas
 
 Controle de vencimentos
 
-✅ Gestão de Receitas
+### ✅ Gestão de Receitas
 Diferentes tipos de receita
 
 Associação com quinzenas
 
 Cálculo de totais
 
-✅ Cálculos Automáticos
+### ✅ Cálculos Automáticos
 Saldo disponível por quinzena
 
 Total de receitas
@@ -102,41 +94,12 @@ Total de despesas pagas
 
 Saldo anterior automático
 
-🛠 Comandos Úteis
-bash
-# Desenvolvimento
-npm run dev              # Inicia servidor com nodemon
-
 # Banco de dados
-npm run db:generate      # Gera cliente do Prisma
-npm run db:push          # Sincroniza schema com banco
+npm run db:generate      # Gera cliente do Prisma <br>
+npm run db:push          # Sincroniza schema com banco <br>
 npm run db:studio        # Abre Prisma Studio
 
-🐛 Tratamento de Erros
-Erros são logados no console
-
-Respostas padronizadas para clientes
-
-Status HTTP apropriados
-
-Mensagens de erro claras
-
-📝 Modelo de Dados
-Principais entidades:
-
-User - Usuários do sistema
-
-Mes - Meses com ano e mês
-
-Quinzena - Primeira ou segunda quinzena do mês
-
-Receita - Entradas de dinheiro
-
-Despesa - Saídas de dinheiro
-
-Parcela - Parcelas de despesas
-
-🔒 Segurança
+# 🔒 Segurança
 Autenticação JWT
 
 Senhas hash com bcrypt
@@ -147,7 +110,7 @@ Validação de dados
 
 Proteção contra SQL injection (Prisma)
 
-🤝 Contribuição
+# 🤝 Contribuição
 Fork o projeto
 
 Crie uma branch para sua feature (git checkout -b feature/AmazingFeature)
