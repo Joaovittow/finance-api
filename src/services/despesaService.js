@@ -89,17 +89,19 @@ export class DespesaService {
   }
 
   // Método para corrigir problema de timezone
-  corrigirTimezone(dataString) {
-    // Se já for um Date object, retorna como está
-    if (dataString instanceof Date) {
-      return dataString;
-    }
-    
-    // Para strings no formato YYYY-MM-DD, cria a data no timezone local
-    const [ano, mes, dia] = dataString.split('-').map(Number);
-    // Cria a data no timezone local (meia-noite no fuso horário local)
-    return new Date(ano, mes - 1, dia);
+corrigirTimezone(dataString) {
+  if (dataString instanceof Date) {
+    return dataString;
   }
+  
+  const [ano, mes, dia] = dataString.split('-').map(Number);
+  
+  const dataUTC = new Date(Date.UTC(ano, mes - 1, dia));
+  
+  const dataSaoPaulo = new Date(dataUTC.getTime() + (-3 * 60 * 60 * 1000));
+  
+  return dataSaoPaulo;
+}
 
   async encontrarQuinzenaParaParcela(dataVencimento) {
     const dia = dataVencimento.getDate();
