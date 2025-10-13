@@ -44,15 +44,14 @@ export class DespesaService {
       let dataVencimento;
 
       if (ehParcelada && dataPrimeiraParcela) {
-        // Corrigir timezone - usar a data como está, sem conversão para UTC
         dataVencimento = this.corrigirTimezone(dataPrimeiraParcela);
         
         if (i > 1) {
           dataVencimento.setMonth(dataVencimento.getMonth() + (i - 1));
         }
-} else {
-  dataVencimento = this.corrigirTimezone(data.data);
-}
+      } else {
+        dataVencimento = this.corrigirTimezone(data.data);
+      }
 
       parcelasData.push({
         numeroParcela: i,
@@ -86,19 +85,20 @@ export class DespesaService {
 
     return despesaCompleta;
   }
-corrigirTimezone(dataString) {
-  if (dataString instanceof Date) {
-    return dataString;
+
+  corrigirTimezone(dataString) {
+    if (dataString instanceof Date) {
+      return dataString;
+    }
+    
+    const [ano, mes, dia] = dataString.split('-').map(Number);
+    return new Date(Date.UTC(ano, mes - 1, dia));
   }
-  
-  const [ano, mes, dia] = dataString.split('-').map(Number);
-  return new Date(Date.UTC(ano, mes - 1, dia));
-}
 
   async encontrarQuinzenaParaParcela(dataVencimento) {
-    const dia = dataVencimento.getDate();
-    const mes = dataVencimento.getMonth() + 1;
-    const ano = dataVencimento.getFullYear();
+    const dia = dataVencimento.getUTCDate();
+    const mes = dataVencimento.getUTCMonth() + 1;
+    const ano = dataVencimento.getUTCFullYear();
     
     const tipoQuinzena = dia <= 15 ? 'primeira' : 'segunda';
 
@@ -140,39 +140,52 @@ corrigirTimezone(dataString) {
     return quinzenaEncontrada.id;
   }
 
-async updateDespesa(id, data) {
-  const despesaExistente = await prisma.despesa.findUnique({
-    where: { id }
-  });
-
-  if (!despesaExistente) {
-    throw new Error('Despesa não encontrada');
-  }
-
-  const camposPermitidos = ['descricao', 'valorTotal', 'categoria', 'observacao'];
-  const dadosAtualizacao = {};
-  
-  camposPermitidos.forEach(campo => {
-    if (data[campo] !== undefined && data[campo] !== despesaExistente[campo]) {
-      if (campo === 'valorTotal') {
-        dadosAtualizacao[campo] = parseFloat(data[campo]);
-      } else {
-        dadosAtualizacao[campo] = data[campo];
-      }
-    }
-  });
-    if (dadosAtualizacao.valorTotal !== undefined) {
-    const valorParcela = dadosAtualizacao.valorTotal;
-    
-    await prisma.parcela.updateMany({
-      where: { despesaId: id },
-      data: { valorParcela }
+  async updateDespesa(id, data) {
+    const despesaExistente = await prisma.despesa.findUnique({
+      where: { id }
     });
-  }
 
-  if (Object.keys(dadosAtualizacao).length === 0) {
-    return await prisma.despesa.findUnique({
+    if (!despesaExistente) {
+      throw new Error('Despesa não encontrada');
+    }
+
+    const camposPermitidos = ['descricao', 'valorTotal', 'categoria', 'observacao'];
+    const dadosAtualizacao = {};
+    
+    camposPermitidos.forEach(campo => {
+      if (data[campo] !== undefined && data[campo] !== despesaExistente[campo]) {
+        if (campo === 'valorTotal') {
+          dadosAtualizacao[campo] = parseFloat(data[campo]);
+        } else {
+          dadosAtualizacao[campo] = data[campo];
+        }
+      }
+    });
+
+    if (dadosAtualizacao.valorTotal !== undefined) {
+      const valorParcela = dadosAtualizacao.valorTotal;
+      
+      await prisma.parcela.updateMany({
+        where: { despesaId: id },
+        data: { valorParcela }
+      });
+    }
+
+    if (Object.keys(dadosAtualizacao).length === 0) {
+      return await prisma.despesa.findUnique({
+        where: { id },
+        include: {
+          parcelasRelacao: {
+            orderBy: { numeroParcela: 'asc' }
+          },
+          quinzena: true
+        }
+      });
+    }
+
+    return await prisma.despesa.update({
       where: { id },
+      data: dadosAtualizacao,
       include: {
         parcelasRelacao: {
           orderBy: { numeroParcela: 'asc' }
@@ -181,18 +194,6 @@ async updateDespesa(id, data) {
       }
     });
   }
-
-  return await prisma.despesa.update({
-    where: { id },
-    data: dadosAtualizacao,
-    include: {
-      parcelasRelacao: {
-        orderBy: { numeroParcela: 'asc' }
-      },
-      quinzena: true
-    }
-  });
-}
 
   async deleteDespesa(id) {
     const despesaExistente = await prisma.despesa.findUnique({
