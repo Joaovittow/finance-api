@@ -40,29 +40,36 @@ export class DespesaService {
     const valorParcela = valorTotal / parcelas;
     const parcelasData = [];
 
-    for (let i = 1; i <= parcelas; i++) {
-      let dataVencimento;
+for (let i = 1; i <= parcelas; i++) {
+  let dataVencimento;
 
-      if (ehParcelada && dataPrimeiraParcela) {
-        // Corrigir timezone - usar a data como está, sem conversão para UTC
-        dataVencimento = this.corrigirTimezone(dataPrimeiraParcela);
-        
-        if (i > 1) {
-          dataVencimento.setMonth(dataVencimento.getMonth() + (i - 1));
-        }
-      } else {
-        // Para despesas à vista, usar a data do formulário diretamente
-        dataVencimento = this.corrigirTimezone(data.data || dataPrimeiraParcela);
-      }
-
-      parcelasData.push({
-        numeroParcela: i,
-        valorParcela,
-        dataVencimento,
-        despesaId: despesa.id,
-        quinzenaId: i === 1 ? quinzenaId : await this.encontrarQuinzenaParaParcela(dataVencimento)
-      });
+  console.log(`\n📦 Processando parcela ${i} de ${parcelas}`);
+  
+  if (ehParcelada && dataPrimeiraParcela) {
+    console.log('🔄 Despesa parcelada, dataPrimeiraParcela:', dataPrimeiraParcela);
+    dataVencimento = this.corrigirTimezone(dataPrimeiraParcela);
+    
+    if (i > 1) {
+      console.log(`📅 Adicionando ${i - 1} meses à data`);
+      const mesOriginal = dataVencimento.getMonth();
+      dataVencimento.setMonth(dataVencimento.getMonth() + (i - 1));
+      console.log(`📅 Mês original: ${mesOriginal + 1}, Mês após adição: ${dataVencimento.getMonth() + 1}`);
     }
+  } else {
+    console.log('💳 Despesa à vista, data:', data.data || dataPrimeiraParcela);
+    dataVencimento = this.corrigirTimezone(data.data || dataPrimeiraParcela);
+  }
+
+  console.log(`🎯 Data de vencimento final da parcela ${i}:`, dataVencimento.toLocaleDateString('pt-BR'));
+
+  parcelasData.push({
+    numeroParcela: i,
+    valorParcela,
+    dataVencimento,
+    despesaId: despesa.id,
+    quinzenaId: i === 1 ? quinzenaId : await this.encontrarQuinzenaParaParcela(dataVencimento)
+  });
+}
 
     await prisma.parcela.createMany({
       data: parcelasData
@@ -88,19 +95,32 @@ export class DespesaService {
     return despesaCompleta;
   }
 
-  // Método para corrigir problema de timezone
+// Método para corrigir problema de timezone
 corrigirTimezone(dataString) {
+  console.log('🔧 Data recebida no corrigirTimezone:', dataString, typeof dataString);
+  
+  let ano, mes, dia;
+
   if (dataString instanceof Date) {
-    return dataString;
+    ano = dataString.getFullYear();
+    mes = dataString.getMonth();
+    dia = dataString.getDate();
+    console.log('📅 De Date object - ano:', ano, 'mes:', mes, 'dia:', dia);
+  } else {
+    // Para strings YYYY-MM-DD
+    [ano, mes, dia] = dataString.split('-').map(Number);
+    mes = mes - 1; // Ajuste para JavaScript (0-11)
+    console.log('📅 De string - ano:', ano, 'mes:', mes + 1, 'dia:', dia);
   }
+
+  // Força a data exata, ignorando completamente timezone
+  const dataCorrigida = new Date(ano, mes, dia);
   
-  const [ano, mes, dia] = dataString.split('-').map(Number);
+  console.log('✅ Data corrigida final:', dataCorrigida);
+  console.log('📋 Data local (pt-BR):', dataCorrigida.toLocaleDateString('pt-BR'));
+  console.log('🌐 Data ISO:', dataCorrigida.toISOString());
   
-  const dataUTC = new Date(Date.UTC(ano, mes - 1, dia));
-  
-  const dataSaoPaulo = new Date(dataUTC.getTime() + (-3 * 60 * 60 * 1000));
-  
-  return dataSaoPaulo;
+  return dataCorrigida;
 }
 
   async encontrarQuinzenaParaParcela(dataVencimento) {
