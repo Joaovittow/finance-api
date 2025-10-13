@@ -12,7 +12,8 @@ export const createDespesa = async (req, res, next) => {
       categoria, 
       observacao,
       ehParcelada, 
-      dataPrimeiraParcela 
+      dataPrimeiraParcela,
+      data
     } = req.body;
     
     const despesa = await despesaService.createDespesaComParcelas({
@@ -23,7 +24,8 @@ export const createDespesa = async (req, res, next) => {
       categoria,
       observacao,
       ehParcelada: ehParcelada || false,
-      dataPrimeiraParcela: dataPrimeiraParcela || new Date()
+      dataPrimeiraParcela: dataPrimeiraParcela || data,
+      data
     });
     
     res.status(201).json(despesa);

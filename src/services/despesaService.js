@@ -50,10 +50,9 @@ export class DespesaService {
         if (i > 1) {
           dataVencimento.setMonth(dataVencimento.getMonth() + (i - 1));
         }
-      } else {
-        // Para despesas à vista, usar a data do formulário diretamente
-        dataVencimento = this.corrigirTimezone(data.data || dataPrimeiraParcela);
-      }
+} else {
+  dataVencimento = this.corrigirTimezone(data.data);
+}
 
       parcelasData.push({
         numeroParcela: i,
