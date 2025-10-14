@@ -69,7 +69,7 @@ model Despesa {
   categoria           String
   observacao          String?
   ehParcelada         Boolean   @default(false)
-  dataPrimeiraParcela DateTime?
+  dataPrimeiraParcela String?
   quinzenaId          String
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
@@ -83,7 +83,7 @@ model Parcela {
   id             String    @id @default(uuid())
   numeroParcela  Int
   valorParcela   Float
-  dataVencimento DateTime
+  dataVencimento String
   pago           Boolean   @default(false)
   valorPago      Float?
   dataPagamento  DateTime?
