@@ -3,97 +3,99 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export class DespesaService {
-  async createDespesaComParcelas(data) {
-    const { 
-      quinzenaId, 
-      descricao, 
-      valorTotal, 
-      parcelas, 
-      categoria, 
-      observacao,
-      ehParcelada,
-      dataPrimeiraParcela
-    } = data;
+async createDespesaComParcelas(data) {
+  const { 
+    quinzenaId, 
+    descricao, 
+    valorTotal, 
+    parcelas, 
+    categoria, 
+    observacao,
+    ehParcelada,
+    dataPrimeiraParcela
+  } = data;
 
-    const quinzena = await prisma.quinzena.findUnique({
-      where: { id: quinzenaId },
-      include: { mes: true }
-    });
+  const quinzena = await prisma.quinzena.findUnique({
+    where: { id: quinzenaId },
+    include: { mes: true }
+  });
 
-    if (!quinzena) {
-      throw new Error('Quinzena não encontrada');
-    }
-
-    const despesa = await prisma.despesa.create({
-      data: {
-        descricao,
-        valorTotal,
-        parcelas,
-        categoria,
-        observacao,
-        ehParcelada: ehParcelada || false,
-        dataPrimeiraParcela: ehParcelada ? new Date(dataPrimeiraParcela) : null,
-        quinzenaId
-      }
-    });
-
-    const valorParcela = valorTotal / parcelas;
-    const parcelasData = [];
-
-for (let i = 1; i <= parcelas; i++) {
-  let dataVencimento;
-
-  console.log(`\n📦 Processando parcela ${i} de ${parcelas}`);
-  
-  if (ehParcelada && dataPrimeiraParcela) {
-    console.log('🔄 Despesa parcelada, dataPrimeiraParcela:', dataPrimeiraParcela);
-    dataVencimento = this.corrigirTimezone(dataPrimeiraParcela);
-    
-    if (i > 1) {
-      console.log(`📅 Adicionando ${i - 1} meses à data`);
-      const mesOriginal = dataVencimento.getMonth();
-      dataVencimento.setMonth(dataVencimento.getMonth() + (i - 1));
-      console.log(`📅 Mês original: ${mesOriginal + 1}, Mês após adição: ${dataVencimento.getMonth() + 1}`);
-    }
-  } else {
-    console.log('💳 Despesa à vista, data:', data.data || dataPrimeiraParcela);
-    dataVencimento = this.corrigirTimezone(data.data || dataPrimeiraParcela);
+  if (!quinzena) {
+    throw new Error('Quinzena não encontrada');
   }
 
-  console.log(`🎯 Data de vencimento final da parcela ${i}:`, dataVencimento.toLocaleDateString('pt-BR'));
-
-  parcelasData.push({
-    numeroParcela: i,
-    valorParcela,
-    dataVencimento,
-    despesaId: despesa.id,
-    quinzenaId: i === 1 ? quinzenaId : await this.encontrarQuinzenaParaParcela(dataVencimento)
+  const despesa = await prisma.despesa.create({
+    data: {
+      descricao,
+      valorTotal,
+      parcelas,
+      categoria,
+      observacao,
+      ehParcelada: ehParcelada || false,
+      // Salvar como string no formato YYYY-MM-DD
+      dataPrimeiraParcela: ehParcelada ? dataPrimeiraParcela.split('T')[0] : null,
+      quinzenaId
+    }
   });
-}
 
-    await prisma.parcela.createMany({
-      data: parcelasData
+  const valorParcela = valorTotal / parcelas;
+  const parcelasData = [];
+
+  for (let i = 1; i <= parcelas; i++) {
+    let dataVencimento;
+
+    if (ehParcelada && dataPrimeiraParcela) {
+      // Trabalhar diretamente com a string YYYY-MM-DD
+      const [ano, mes, dia] = dataPrimeiraParcela.split('-').map(Number);
+      const dataBase = new Date(ano, mes - 1, dia);
+      
+      if (i > 1) {
+        dataBase.setMonth(dataBase.getMonth() + (i - 1));
+      }
+      
+      // Converter para string YYYY-MM-DD
+      dataVencimento = this.formatarDataParaString(dataBase);
+    } else {
+      // Para despesas à vista, usar a data diretamente
+      dataVencimento = (data.data || dataPrimeiraParcela).split('T')[0];
+    }
+
+    parcelasData.push({
+      numeroParcela: i,
+      valorParcela,
+      dataVencimento, // Agora é string
+      despesaId: despesa.id,
+      quinzenaId: i === 1 ? quinzenaId : await this.encontrarQuinzenaParaParcela(dataVencimento)
     });
+  }
 
-    const despesaCompleta = await prisma.despesa.findUnique({
-      where: { id: despesa.id },
-      include: {
-        parcelasRelacao: {
-          orderBy: { numeroParcela: 'asc' },
-          include: {
-            quinzena: true
-          }
-        },
-        quinzena: {
-          include: {
-            mes: true
-          }
+  await prisma.parcela.createMany({
+    data: parcelasData
+  });
+
+  const despesaCompleta = await prisma.despesa.findUnique({
+    where: { id: despesa.id },
+    include: {
+      parcelasRelacao: {
+        orderBy: { numeroParcela: 'asc' }
+      },
+      quinzena: {
+        include: {
+          mes: true
         }
       }
-    });
+    }
+  });
 
-    return despesaCompleta;
-  }
+  return despesaCompleta;
+}
+
+formatarDataParaString(data) {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, '0');
+  const dia = String(data.getDate()).padStart(2, '0');
+  return `${ano}-${mes}-${dia}`;
+}
 
 // Método para corrigir problema de timezone
 corrigirTimezone(dataString) {
@@ -123,50 +125,49 @@ corrigirTimezone(dataString) {
   return dataCorrigida;
 }
 
-  async encontrarQuinzenaParaParcela(dataVencimento) {
-    const dia = dataVencimento.getDate();
-    const mes = dataVencimento.getMonth() + 1;
-    const ano = dataVencimento.getFullYear();
-    
-    const tipoQuinzena = dia <= 15 ? 'primeira' : 'segunda';
+async encontrarQuinzenaParaParcela(dataVencimentoString) {
+  // dataVencimentoString está no formato YYYY-MM-DD
+  const [ano, mes, dia] = dataVencimentoString.split('-').map(Number);
+  
+  const tipoQuinzena = dia <= 15 ? 'primeira' : 'segunda';
 
-    const quinzena = await prisma.quinzena.findFirst({
-      where: {
-        mes: {
-          ano,
-          mes
-        },
-        tipo: tipoQuinzena
-      }
-    });
-
-    if (quinzena) {
-      return quinzena.id;
-    }
-
-    const user = await prisma.user.findFirst();
-
-    const novoMes = await prisma.mes.create({
-      data: {
+  const quinzena = await prisma.quinzena.findFirst({
+    where: {
+      mes: {
         ano,
-        mes,
-        userId: user.id,
-        ativo: false,
-        quinzenas: {
-          create: [
-            { tipo: 'primeira' },
-            { tipo: 'segunda' }
-          ]
-        }
+        mes
       },
-      include: {
-        quinzenas: true
-      }
-    });
+      tipo: tipoQuinzena
+    }
+  });
 
-    const quinzenaEncontrada = novoMes.quinzenas.find(q => q.tipo === tipoQuinzena);
-    return quinzenaEncontrada.id;
+  if (quinzena) {
+    return quinzena.id;
   }
+
+  const user = await prisma.user.findFirst();
+
+  const novoMes = await prisma.mes.create({
+    data: {
+      ano,
+      mes,
+      userId: user.id,
+      ativo: false,
+      quinzenas: {
+        create: [
+          { tipo: 'primeira' },
+          { tipo: 'segunda' }
+        ]
+      }
+    },
+    include: {
+      quinzenas: true
+    }
+  });
+
+  const quinzenaEncontrada = novoMes.quinzenas.find(q => q.tipo === tipoQuinzena);
+  return quinzenaEncontrada.id;
+}
 
 async updateDespesa(id, data) {
   const despesaExistente = await prisma.despesa.findUnique({
