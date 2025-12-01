@@ -14,7 +14,7 @@ const app = express();
 
 app.use(cors({
   origin: [
-    'https://finance-interface-three.vercel.app',
+    'https://organizax.netlify.app',
     'http://localhost:3000'
   ],
   credentials: true,
