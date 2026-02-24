@@ -2,10 +2,10 @@ import { ParcelaService } from '../services/parcelaService.js';
 
 const parcelaService = new ParcelaService();
 
-export const getParcelasPorQuinzena = async (req, res, next) => {
+export const getParcelasPorMes = async (req, res, next) => {
   try {
-    const { quinzenaId } = req.params;
-    const parcelas = await parcelaService.getParcelasPorQuinzena(quinzenaId);
+    const { mesId } = req.params;
+    const parcelas = await parcelaService.getParcelasPorMes(mesId);
     res.json(parcelas);
   } catch (error) {
     next(error);

@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import mesRoutes from './routes/mesRoutes.js';
-import quinzenaRoutes from './routes/quinzenaRoutes.js';
 import receitaRoutes from './routes/receitaRoutes.js';
 import despesaRoutes from './routes/despesaRoutes.js';
 import parcelaRoutes from './routes/parcelaRoutes.js';
@@ -29,7 +28,6 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/meses', mesRoutes);
-app.use('/api/quinzenas', quinzenaRoutes);
 app.use('/api/receitas', receitaRoutes);
 app.use('/api/despesas', despesaRoutes);
 app.use('/api/parcelas', parcelaRoutes);

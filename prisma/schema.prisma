@@ -21,42 +21,31 @@ model User {
 }
 
 model Mes {
-  id        String     @id @default(uuid())
-  ano       Int
-  mes       Int
-  ativo     Boolean    @default(false)
-  createdAt DateTime   @default(now())
-  userId    String
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  quinzenas Quinzena[]
+  id            String    @id @default(uuid())
+  ano           Int
+  mes           Int
+  ativo         Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  userId        String
+  saldoAnterior Float     @default(0)
+  despesas      Despesa[]
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parcelas      Parcela[]
+  receitas      Receita[]
 
   @@unique([ano, mes, userId])
   @@map("meses")
 }
 
-model Quinzena {
-  id            String    @id @default(uuid())
-  tipo          String
-  saldoAnterior Float     @default(0)
-  createdAt     DateTime  @default(now())
-  mesId         String
-  Despesa       Despesa[]
-  parcelas      Parcela[]
-  mes           Mes       @relation(fields: [mesId], references: [id], onDelete: Cascade)
-  receitas      Receita[]
-
-  @@unique([mesId, tipo])
-  @@map("quinzenas")
-}
-
 model Receita {
-  id         String   @id @default(uuid())
-  descricao  String
-  valor      Float
-  tipo       String
-  createdAt  DateTime @default(now())
-  quinzenaId String
-  quinzena   Quinzena @relation(fields: [quinzenaId], references: [id], onDelete: Cascade)
+  id           String   @id @default(uuid())
+  descricao    String
+  valor        Float
+  tipo         String   @default("fixa")
+  createdAt    DateTime @default(now())
+  mesId        String
+  dataDeposito String?
+  mes          Mes      @relation(fields: [mesId], references: [id], onDelete: Cascade)
 
   @@map("receitas")
 }
@@ -70,10 +59,10 @@ model Despesa {
   observacao          String?
   ehParcelada         Boolean   @default(false)
   dataPrimeiraParcela String?
-  quinzenaId          String
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
-  quinzena            Quinzena  @relation(fields: [quinzenaId], references: [id], onDelete: Cascade)
+  mesId               String
+  mes                 Mes       @relation(fields: [mesId], references: [id], onDelete: Cascade)
   parcelasRelacao     Parcela[]
 
   @@map("despesas")
@@ -88,9 +77,9 @@ model Parcela {
   valorPago      Float?
   dataPagamento  DateTime?
   despesaId      String
-  quinzenaId     String
+  mesId          String
   despesa        Despesa   @relation(fields: [despesaId], references: [id], onDelete: Cascade)
-  quinzena       Quinzena  @relation(fields: [quinzenaId], references: [id], onDelete: Cascade)
+  mes            Mes       @relation(fields: [mesId], references: [id], onDelete: Cascade)
 
   @@unique([despesaId, numeroParcela])
   @@map("parcelas")

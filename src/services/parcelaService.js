@@ -3,16 +3,12 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export class ParcelaService {
-  async getParcelasPorQuinzena(quinzenaId) {
+  async getParcelasPorMes(mesId) {
     return await prisma.parcela.findMany({
-      where: { quinzenaId },
+      where: { mesId },
       include: {
         despesa: true,
-        quinzena: {
-          include: {
-            mes: true
-          }
-        }
+        mes: true
       },
       orderBy: { dataVencimento: 'asc' }
     });
@@ -24,7 +20,7 @@ export class ParcelaService {
       where: { id },
       include: {
         despesa: true,
-        quinzena: true
+        mes: true
       }
     });
 
@@ -45,11 +41,7 @@ export class ParcelaService {
       },
       include: {
         despesa: true,
-        quinzena: {
-          include: {
-            mes: true
-          }
-        }
+        mes: true
       }
     });
   }
@@ -82,11 +74,7 @@ export class ParcelaService {
       },
       include: {
         despesa: true,
-        quinzena: {
-          include: {
-            mes: true
-          }
-        }
+        mes: true
       }
     });
   }
@@ -101,11 +89,7 @@ export class ParcelaService {
       },
       include: {
         despesa: true,
-        quinzena: {
-          include: {
-            mes: true
-          }
-        }
+        mes: true
       },
       orderBy: { dataVencimento: 'asc' }
     });
@@ -115,11 +99,7 @@ export class ParcelaService {
     return await prisma.parcela.findMany({
       where: { despesaId },
       include: {
-        quinzena: {
-          include: {
-            mes: true
-          }
-        }
+        mes: true
       },
       orderBy: { numeroParcela: 'asc' }
     });

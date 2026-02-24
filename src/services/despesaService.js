@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 export class DespesaService {
   async createDespesaComParcelas(data) {
     const { 
-      quinzenaId, 
+      mesId, 
       descricao, 
       valorTotal, 
       parcelas, 
@@ -15,13 +15,12 @@ export class DespesaService {
       dataPrimeiraParcela
     } = data;
 
-    const quinzena = await prisma.quinzena.findUnique({
-      where: { id: quinzenaId },
-      include: { mes: true }
+    const mes = await prisma.mes.findUnique({
+      where: { id: mesId }
     });
 
-    if (!quinzena) {
-      throw new Error('Quinzena não encontrada');
+    if (!mes) {
+      throw new Error('Mês não encontrado');
     }
 
     const despesa = await prisma.despesa.create({
@@ -33,7 +32,7 @@ export class DespesaService {
         observacao,
         ehParcelada: ehParcelada || false,
         dataPrimeiraParcela: ehParcelada ? dataPrimeiraParcela.split('T')[0] : null,
-        quinzenaId
+        mesId
       }
     });
 
@@ -44,8 +43,8 @@ export class DespesaService {
       let dataVencimento;
 
       if (ehParcelada && dataPrimeiraParcela) {
-        const [ano, mes, dia] = dataPrimeiraParcela.split('-').map(Number);
-        const dataBase = new Date(ano, mes - 1, dia);
+        const [ano, mesNum, dia] = dataPrimeiraParcela.split('-').map(Number);
+        const dataBase = new Date(ano, mesNum - 1, dia);
         
         if (i > 1) {
           dataBase.setMonth(dataBase.getMonth() + (i - 1));
@@ -61,7 +60,7 @@ export class DespesaService {
         valorParcela,
         dataVencimento,
         despesaId: despesa.id,
-        quinzenaId: i === 1 ? quinzenaId : await this.encontrarQuinzenaParaParcela(dataVencimento)
+        mesId: i === 1 ? mesId : await this.encontrarMesParaParcela(dataVencimento, mes.userId)
       });
     }
 
@@ -75,11 +74,7 @@ export class DespesaService {
         parcelasRelacao: {
           orderBy: { numeroParcela: 'asc' }
         },
-        quinzena: {
-          include: {
-            mes: true
-          }
-        }
+        mes: true
       }
     });
 
@@ -110,47 +105,33 @@ export class DespesaService {
     return dataCorrigida;
   }
 
-  async encontrarQuinzenaParaParcela(dataVencimentoString) {
-    const [ano, mes, dia] = dataVencimentoString.split('-').map(Number);
-    
-    const tipoQuinzena = dia <= 15 ? 'primeira' : 'segunda';
+  async encontrarMesParaParcela(dataVencimentoString, userId) {
+    const [ano, mesNum] = dataVencimentoString.split('-').map(Number);
 
-    const quinzena = await prisma.quinzena.findFirst({
+    // Buscar mês existente para esse ano/mês
+    const mesExistente = await prisma.mes.findFirst({
       where: {
-        mes: {
-          ano,
-          mes
-        },
-        tipo: tipoQuinzena
+        ano,
+        mes: mesNum,
+        userId
       }
     });
 
-    if (quinzena) {
-      return quinzena.id;
+    if (mesExistente) {
+      return mesExistente.id;
     }
 
-    const user = await prisma.user.findFirst();
-
+    // Criar mês automaticamente se não existir
     const novoMes = await prisma.mes.create({
       data: {
         ano,
-        mes,
-        userId: user.id,
-        ativo: false,
-        quinzenas: {
-          create: [
-            { tipo: 'primeira' },
-            { tipo: 'segunda' }
-          ]
-        }
-      },
-      include: {
-        quinzenas: true
+        mes: mesNum,
+        userId,
+        ativo: false
       }
     });
 
-    const quinzenaEncontrada = novoMes.quinzenas.find(q => q.tipo === tipoQuinzena);
-    return quinzenaEncontrada.id;
+    return novoMes.id;
   }
 
   async updateDespesa(id, data) {
@@ -159,7 +140,8 @@ export class DespesaService {
       include: {
         parcelasRelacao: {
           orderBy: { numeroParcela: 'asc' }
-        }
+        },
+        mes: true
       }
     });
 
@@ -201,8 +183,8 @@ export class DespesaService {
         let dataVencimento;
 
         if (despesaExistente.ehParcelada) {
-          const [ano, mes, dia] = dadosAtualizacao.dataPrimeiraParcela.split('-').map(Number);
-          const dataBase = new Date(ano, mes - 1, dia);
+          const [ano, mesNum, dia] = dadosAtualizacao.dataPrimeiraParcela.split('-').map(Number);
+          const dataBase = new Date(ano, mesNum - 1, dia);
           
           if (i > 1) {
             dataBase.setMonth(dataBase.getMonth() + (i - 1));
@@ -213,14 +195,14 @@ export class DespesaService {
           dataVencimento = dadosAtualizacao.dataPrimeiraParcela.split('T')[0];
         }
 
-        const quinzenaId = i === 1 ? despesaExistente.quinzenaId : await this.encontrarQuinzenaParaParcela(dataVencimento);
+        const mesId = i === 1 ? despesaExistente.mesId : await this.encontrarMesParaParcela(dataVencimento, despesaExistente.mes.userId);
 
         parcelasData.push({
           numeroParcela: i,
           valorParcela,
           dataVencimento,
           despesaId: id,
-          quinzenaId
+          mesId
         });
       }
 
@@ -236,7 +218,7 @@ export class DespesaService {
           parcelasRelacao: {
             orderBy: { numeroParcela: 'asc' }
           },
-          quinzena: true
+          mes: true
         }
       });
     }
@@ -248,7 +230,7 @@ export class DespesaService {
         parcelasRelacao: {
           orderBy: { numeroParcela: 'asc' }
         },
-        quinzena: true
+        mes: true
       }
     });
   }
@@ -268,18 +250,6 @@ export class DespesaService {
 
     return await prisma.despesa.delete({
       where: { id }
-    });
-  }
-
-  async getDespesasPorQuinzena(quinzenaId) {
-    return await prisma.despesa.findMany({
-      where: { quinzenaId },
-      include: {
-        parcelasRelacao: {
-          orderBy: { numeroParcela: 'asc' }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
     });
   }
 }

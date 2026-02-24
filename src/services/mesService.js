@@ -3,19 +3,18 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+const hojeYMDLocal = () => new Date().toLocaleDateString('sv-SE');
+const receitaContaNoTotal = (rec, hojeYMD) => !rec.dataDeposito || rec.dataDeposito <= hojeYMD;
+
 export class MesService {
   async getMeses(userId) {
-    return await prisma.mes.findMany({
+    const meses = await prisma.mes.findMany({
       where: { userId },
       include: {
-        quinzenas: {
+        receitas: true,
+        parcelas: {
           include: {
-            receitas: true,
-            parcelas: {
-              include: {
-                despesa: true
-              }
-            }
+            despesa: true
           }
         }
       },
@@ -23,6 +22,25 @@ export class MesService {
         { ano: 'desc' },
         { mes: 'desc' }
       ]
+    });
+
+    // Adicionar campos calculados
+    return meses.map(mes => {
+      const hojeYMD = hojeYMDLocal();
+      const totalReceitas = mes.receitas
+        .filter(rec => receitaContaNoTotal(rec, hojeYMD))
+        .reduce((sum, rec) => sum + rec.valor, 0);
+      const totalDespesas = mes.parcelas
+        .filter(p => p.pago)
+        .reduce((sum, parc) => sum + (parc.valorPago || parc.valorParcela), 0);
+      const saldo = totalReceitas - totalDespesas;
+
+      return {
+        ...mes,
+        totalReceitas,
+        totalDespesas,
+        saldo
+      };
     });
   }
 
@@ -33,14 +51,10 @@ export class MesService {
         userId 
       },
       include: {
-        quinzenas: {
+        receitas: true,
+        parcelas: {
           include: {
-            receitas: true,
-            parcelas: {
-              include: {
-                despesa: true
-              }
-            }
+            despesa: true
           }
         }
       }
@@ -50,7 +64,71 @@ export class MesService {
       throw new Error('Mês não encontrado');
     }
 
-    return mes;
+    // Calcular saldoAnterior dinamicamente
+    const saldoAnterior = await this.calcularSaldoAnterior(mes.ano, mes.mes, userId);
+    
+    // Atualizar saldoAnterior se mudou
+    if (saldoAnterior !== mes.saldoAnterior) {
+      await prisma.mes.update({
+        where: { id },
+        data: { saldoAnterior }
+      });
+      mes.saldoAnterior = saldoAnterior;
+    }
+
+    const hojeYMD = hojeYMDLocal();
+    const totalReceitas = mes.receitas
+      .filter(rec => receitaContaNoTotal(rec, hojeYMD))
+      .reduce((sum, rec) => sum + rec.valor, 0);
+    const totalDespesas = mes.parcelas
+      .filter(p => p.pago)
+      .reduce((sum, parc) => sum + (parc.valorPago || parc.valorParcela), 0);
+    const saldo = totalReceitas - totalDespesas;
+
+    return {
+      ...mes,
+      totalReceitas,
+      totalDespesas,
+      saldo
+    };
+  }
+
+  async calcularSaldoAnterior(ano, mes, userId) {
+    // Encontrar o mês imediatamente anterior
+    let mesAnterior, anoAnterior;
+    if (mes === 1) {
+      mesAnterior = 12;
+      anoAnterior = ano - 1;
+    } else {
+      mesAnterior = mes - 1;
+      anoAnterior = ano;
+    }
+
+    const mesAnteriorRecord = await prisma.mes.findFirst({
+      where: {
+        ano: anoAnterior,
+        mes: mesAnterior,
+        userId
+      },
+      include: {
+        receitas: true,
+        parcelas: true
+      }
+    });
+
+    if (!mesAnteriorRecord) {
+      return 0;
+    }
+
+    const hojeYMD = hojeYMDLocal();
+    const totalReceitas = mesAnteriorRecord.receitas
+      .filter(rec => receitaContaNoTotal(rec, hojeYMD))
+      .reduce((sum, rec) => sum + rec.valor, 0);
+    const totalDespesasPagas = mesAnteriorRecord.parcelas
+      .filter(p => p.pago)
+      .reduce((sum, parc) => sum + (parc.valorPago || parc.valorParcela), 0);
+
+    return totalReceitas - totalDespesasPagas;
   }
 
   async createMes(ano, mes, userId) {
@@ -71,21 +149,16 @@ export class MesService {
     // Criar o próximo mês disponível
     const { proximoAno, proximoMes } = await this.encontrarProximoMesDisponivel(ano, mes, userId);
     
+    // Calcular saldoAnterior automaticamente
+    const saldoAnterior = await this.calcularSaldoAnterior(proximoAno, proximoMes, userId);
+
     const novoMes = await prisma.mes.create({
       data: {
         ano: proximoAno,
         mes: proximoMes,
         userId: userId,
         ativo: true,
-        quinzenas: {
-          create: [
-            { tipo: 'primeira' },
-            { tipo: 'segunda' }
-          ]
-        }
-      },
-      include: {
-        quinzenas: true
+        saldoAnterior
       }
     });
 
@@ -149,10 +222,7 @@ export class MesService {
 
     return await prisma.mes.update({
       where: { id },
-      data,
-      include: {
-        quinzenas: true
-      }
+      data
     });
   }
 
@@ -174,7 +244,7 @@ export class MesService {
     });
   }
 
-  // Novo método para obter ou criar o mês atual
+  // Método para obter ou criar o mês atual
   async getOuCriarMesAtual(userId) {
     const anoAtual = new Date().getFullYear();
     const mesAtual = new Date().getMonth() + 1;
@@ -188,14 +258,11 @@ export class MesService {
           ano: anoAtual,
           mes: mesAtual,
           userId
-        },
-        include: {
-          quinzenas: true
         }
       });
       
       if (mesExistente) {
-        return mesExistente;
+        return await this.getMesById(mesExistente.id, userId);
       }
       
       throw error;

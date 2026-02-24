@@ -2,12 +2,12 @@ import express from 'express';
 import {
   marcarParcelaComoPaga,
   updateParcela,
-  getParcelasPorQuinzena
+  getParcelasPorMes
 } from '../controllers/parcelaController.js';
 
 const router = express.Router();
 
-router.get('/quinzena/:quinzenaId', getParcelasPorQuinzena);
+router.get('/mes/:mesId', getParcelasPorMes);
 router.patch('/:id/pagar', marcarParcelaComoPaga);
 router.put('/:id', updateParcela);
 

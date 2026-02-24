@@ -120,21 +120,7 @@ export class UserService {
           mes: currentMonth,
           userId: user.id,
           ativo: true,
-          quinzenas: {
-            create: [
-              { 
-                tipo: 'primeira',
-                saldoAnterior: 0
-              },
-              { 
-                tipo: 'segunda',
-                saldoAnterior: 0
-              }
-            ]
-          }
-        },
-        include: {
-          quinzenas: true
+          saldoAnterior: 0
         }
       });
     }

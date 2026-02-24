@@ -5,7 +5,7 @@ const despesaService = new DespesaService();
 export const createDespesa = async (req, res, next) => {
   try {
     const { 
-      quinzenaId, 
+      mesId, 
       descricao, 
       valorTotal, 
       parcelas, 
@@ -17,7 +17,7 @@ export const createDespesa = async (req, res, next) => {
     } = req.body;
     
     const despesa = await despesaService.createDespesaComParcelas({
-      quinzenaId,
+      mesId,
       descricao,
       valorTotal: parseFloat(valorTotal),
       parcelas: parseInt(parcelas),
